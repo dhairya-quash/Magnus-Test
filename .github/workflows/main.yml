@@ -1,0 +1,68 @@
+name: Deploy to Cloud Run using Docker
+
+on:
+  push:
+    branches:
+      - main  # Adjust to your branch
+env:
+  SERVICE_NAME: ${{ secrets.CLOUD_RUN_SERVICE }}
+  REGION: ${{ secrets.REGION }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Authenticate with Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        project_id: $PROJECT_ID
+        service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        export_default_credentials: true
+
+    - name: Set Google Cloud Project
+      run: gcloud config set project $PROJECT_ID
+
+    - name: Configure Docker authentication with GCR
+      run: gcloud auth configure-docker
+
+    - name: Build Docker image
+      run: |
+        export IMAGE_NAME=gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }}
+        docker build --platform linux/amd64 -t $IMAGE_NAME .
+
+    - name: Push Docker image to GCR
+      run: |
+        export IMAGE_NAME=gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }}
+        docker push $IMAGE_NAME
+
+    - name: Fetch application.properties from Secret Manager
+      run: |
+        gcloud secrets versions access latest --secret="application-properties" > application.properties
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy $SERVICE_NAME \
+          --image gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }} \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --no-traffic
+
+    - name: Shift traffic to new revision
+      run: |
+        gcloud run services update-traffic $SERVICE_NAME \
+          --to-latest
+
+    - name: Delete old revisions
+      run: |
+        revisions=$(gcloud run revisions list --service <SERVICE_NAME> --format="value(NAME)" --sort-by="~CREATE_TIME")
+        echo "Revisions: $revisions"
+        to_delete=$(echo "$revisions" | sed -n '3,$p')  # Keep only the latest 2
+        if [ -n "$to_delete" ]; then
+          echo "$to_delete" | xargs -I {} gcloud run revisions delete {} --quiet
+        fi
