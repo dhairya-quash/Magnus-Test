@@ -20,23 +20,23 @@ jobs:
     - name: Authenticate with Google Cloud
       uses: google-github-actions/auth@v1
       with:
-        project_id: $PROJECT_ID
+        project_id: ${{ env.PROJECT_ID }}
         credentials_json: ${{secrets.GCP_SERVICE_ACCOUNT_KEY}}
 
     - name: Set Google Cloud Project
-      run: gcloud config set project $PROJECT_ID
+      run: gcloud config set project ${{ env.PROJECT_ID }}
 
     - name: Configure Docker authentication with GCR
       run: gcloud auth configure-docker
 
     - name: Build Docker image
       run: |
-        export IMAGE_NAME=gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }}
+        export IMAGE_NAME=gcr.io/${{ env.PROJECT_ID }}/${{env.SERVICE_NAME}}:${{ github.sha }}
         docker build --platform linux/amd64 -t $IMAGE_NAME .
 
     - name: Push Docker image to GCR
       run: |
-        export IMAGE_NAME=gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }}
+        export IMAGE_NAME=gcr.io/${{ env.PROJECT_ID }}/${{env.SERVICE_NAME}}:${{ github.sha }}
         docker push $IMAGE_NAME
 
     - name: Fetch application.properties from Secret Manager
@@ -46,20 +46,20 @@ jobs:
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy $SERVICE_NAME \
-          --image gcr.io/${{ env.PROJECT_ID }}/$SERVICE_NAME:${{ github.sha }} \
-          --region $REGION \
+          --image gcr.io/${{ env.PROJECT_ID }}/${{env.SERVICE_NAME}}:${{ github.sha }} \
+          --region ${{env.REGION}} \
           --platform managed \
           --allow-unauthenticated \
           --no-traffic
 
     - name: Shift traffic to new revision
       run: |
-        gcloud run services update-traffic $SERVICE_NAME \
+        gcloud run services update-traffic ${{env.SERVICE_NAME}} \
           --to-latest
 
     - name: Delete old revisions
       run: |
-        revisions=$(gcloud run revisions list --service <SERVICE_NAME> --format="value(NAME)" --sort-by="~CREATE_TIME")
+        revisions=$(gcloud run revisions list --service ${{env.SERVICE_NAME}} --format="value(NAME)" --sort-by="~CREATE_TIME")
         echo "Revisions: $revisions"
         to_delete=$(echo "$revisions" | sed -n '3,$p')  # Keep only the latest 2
         if [ -n "$to_delete" ]; then
