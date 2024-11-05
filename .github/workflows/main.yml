@@ -54,8 +54,9 @@ jobs:
 
     - name: Shift traffic to new revision
       run: |
-        gcloud run services update-traffic ${{env.SERVICE_NAME}} \
-          --to-latest
+        gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+        --to-latest \
+        --region="${{ env.REGION }}"
 
     - name: Delete old revisions
       run: |
