@@ -51,7 +51,7 @@ jobs:
           --platform managed \
           --allow-unauthenticated \
           --no-traffic
-          --set-env-vars SPRING_CONFIG_LOCATION="file:/$GITHUB_WORKSPACE/application.properties" \
+          --set-env-vars SPRING_CONFIG_LOCATION="file:/${{env.GITHUB_WORKSPACE}}/application.properties" \
           --timeout=600s  # Extend to 10 minutes if needed
 
     - name: Shift traffic to new revision
