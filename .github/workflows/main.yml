@@ -41,8 +41,8 @@ jobs:
 
     - name: Fetch application.properties from Secret Manager
       run: |
-        gcloud secrets versions access latest --secret="magnus-staging-properties" --project=${{ env.PROJECT_ID }} > ${{env.GITHUB_WORKSPACE}}/application.properties
-        cat ${{env.GITHUB_WORKSPACE}}/application.properties
+        gcloud secrets versions access latest --secret="magnus-staging-properties" --project=${{ env.PROJECT_ID }} > ${{github.workspace}}/application.properties
+        cat ${{github.workspace}}/application.properties
 
     - name: Deploy to Cloud Run
       run: |
@@ -52,7 +52,7 @@ jobs:
           --platform managed \
           --allow-unauthenticated \
           --no-traffic
-          --set-env-vars SPRING_CONFIG_LOCATION="file:/${{env.GITHUB_WORKSPACE}}/application.properties" \
+          --set-env-vars SPRING_CONFIG_LOCATION="file:/${{github.workspace}}/application.properties" \
           --timeout=600s  # Extend to 10 minutes if needed
 
     - name: Shift traffic to new revision
