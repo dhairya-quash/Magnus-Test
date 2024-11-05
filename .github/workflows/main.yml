@@ -21,8 +21,7 @@ jobs:
       uses: google-github-actions/auth@v1
       with:
         project_id: $PROJECT_ID
-        service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-        export_default_credentials: true
+        credentials_json: ${{secrets.GCP_SERVICE_ACCOUNT_KEY}}
 
     - name: Set Google Cloud Project
       run: gcloud config set project $PROJECT_ID
