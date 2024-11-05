@@ -51,6 +51,7 @@ jobs:
           --platform managed \
           --allow-unauthenticated \
           --no-traffic
+          --timeout=600s  # Extend to 10 minutes if needed
 
     - name: Shift traffic to new revision
       run: |
