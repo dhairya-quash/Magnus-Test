@@ -41,7 +41,7 @@ jobs:
 
     - name: Fetch application.properties from Secret Manager
       run: |
-        gcloud secrets versions access latest --secret="magnus-staging-properties" --project=$PROJECT_ID > application.properties
+        gcloud secrets versions access latest --secret="magnus-staging-properties" --project=${{ env.PROJECT_ID }} > application.properties
 
     - name: Deploy to Cloud Run
       run: |
