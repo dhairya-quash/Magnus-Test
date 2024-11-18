@@ -1,9 +1,17 @@
-name: Deploy to Cloud Run using Docker
+name: Deploy to Cloud Run
 
 on:
-  push:
-    branches:
-      - main  # Adjust to your branch
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment (e.g., staging, production)"
+        required: true
+        default: "staging"
+      branch:
+        description: "Branch to deploy (e.g., main, develop)"
+        required: true
+        default: "main"
+
 env:
   SERVICE_NAME: ${{ secrets.CLOUD_RUN_SERVICE }}
   REGION: ${{ secrets.REGION }}
@@ -14,58 +22,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Step 1: Checkout the code from the target branch
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
-    - name: Authenticate with Google Cloud
-      uses: google-github-actions/auth@v1
-      with:
-        project_id: ${{ env.PROJECT_ID }}
-        credentials_json: ${{secrets.GCP_SERVICE_ACCOUNT_KEY}}
+      # Step 2: Authenticate with Google Cloud
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          credentials_json: ${{secrets.GCP_SERVICE_ACCOUNT_KEY}}
 
-    - name: Set Google Cloud Project
-      run: gcloud config set project ${{ env.PROJECT_ID }}
+      # Step 3: Configure gcloud CLI
+      - name: Set up gcloud CLI
+        run: |
+          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+          gcloud auth configure-docker
 
-    - name: Configure Docker authentication with GCR
-      run: gcloud auth configure-docker
+      # Step 4: Get Git commit hash for versioning
+      - name: Get short Git commit hash
+        id: commit
+        run: |
+          echo "GIT_COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-    - name: Build Docker image
-      run: |
-        export IMAGE_NAME=gcr.io/${{ env.PROJECT_ID }}/${{env.SERVICE_NAME}}:${{ github.sha }}
-        docker build --platform linux/amd64 -t $IMAGE_NAME .
+      # Step 5: Build Docker image with versioning
+      - name: Build Docker image
+        run: |
+          IMAGE_NAME=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
+          IMAGE_TAG="${{ github.event.inputs.branch }}-${{ github.sha }}"
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
 
-    - name: Push Docker image to GCR
-      run: |
-        export IMAGE_NAME=gcr.io/${{ env.PROJECT_ID }}/${{env.SERVICE_NAME}}:${{ github.sha }}
-        docker push $IMAGE_NAME
+      # Step 6: Push Docker image with tag to GCR
+      - name: Push Docker image to GCR
+        run: |
+          IMAGE_TAG="${{ github.event.inputs.environment }}-${{ github.sha }}-${{ github.event.inputs.branch }}"
+          IMAGE_NAME=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
+          docker push $IMAGE_NAME:$IMAGE_TAG
 
-    - name: Fetch application.properties from Secret Manager
-      run: |
-        gcloud secrets versions access latest --secret="magnus-staging-properties" --project=${{ env.PROJECT_ID }} > ${{github.workspace}}/application.properties
-        cat ${{github.workspace}}/application.properties
+      # Step 7: Deploy to Cloud Run
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE_TAG="${{ github.event.inputs.branch }}-${{ github.sha }}"
+          gcloud run deploy ${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }} \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/your-service-name-${{ github.event.inputs.environment }}:$IMAGE_TAG \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars ENVIRONMENT=${{ github.event.inputs.environment }},SPRING_PROFILES_ACTIVE=${{ github.event.inputs.environment }}
 
-    - name: Deploy to Cloud Run
-      run: |
-        gcloud run deploy $SERVICE_NAME \
-          --image gcr.io/${{ env.PROJECT_ID }}/${{env.SERVICE_NAME}}:${{ github.sha }} \
-          --region ${{env.REGION}} \
-          --platform managed \
-          --allow-unauthenticated \
-          --no-traffic
-          --set-env-vars SPRING_CONFIG_LOCATION="file:/${{github.workspace}}/application.properties" \
-          --timeout=600s  # Extend to 10 minutes if needed
-
-    - name: Shift traffic to new revision
-      run: |
-        gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
-        --to-latest \
-        --region="${{ env.REGION }}"
-
-    - name: Delete old revisions
-      run: |
-        revisions=$(gcloud run revisions list --service ${{env.SERVICE_NAME}} --format="value(NAME)" --sort-by="~CREATE_TIME")
-        echo "Revisions: $revisions"
-        to_delete=$(echo "$revisions" | sed -n '3,$p')  # Keep only the latest 2
-        if [ -n "$to_delete" ]; then
-          echo "$to_delete" | xargs -I {} gcloud run revisions delete {} --quiet
-        fi
+      # Step 8: Verify the deployment
+      - name: Verify deployment
+        run: |
+          echo "Deployment complete. Access your service at:"
+          gcloud run services describe ${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }} --region=${{ env.REGION }} --format='value(status.url)'
