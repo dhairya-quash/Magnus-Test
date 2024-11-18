@@ -103,3 +103,23 @@ jobs:
             | tail -n +4 \
             | xargs -I {} gcloud run revisions delete {} \
               --region=$REGION --quiet
+      
+      # Notify Success (Send Slack Message)
+      - name: Notify Slack - Success
+        if: success()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "text": "✅ *Deployment Successful* \nService: `${{env.SERVICE_NAME}}` \nBranch: `${{ github.event.inputs.branch }}` \nEnvironment: `${{ github.event.inputs.environment }}` \n<https://console.cloud.google.com/run|View Cloud Run>"
+            }' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      # Notify Failure (Send Slack Message)
+      - name: Notify Slack - Failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "text": "❌ *Deployment Failed* \nService: `${{env.SERVICE_NAME}}` \nBranch: `${{ github.event.inputs.branch }}` \nEnvironment: `${{ github.event.inputs.environment }}` \nCheck the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|GitHub Actions logs> for details."
+            }' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
