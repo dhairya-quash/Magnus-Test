@@ -76,3 +76,16 @@ jobs:
         run: |
           echo "Deployment complete. Access your service at:"
           gcloud run services describe ${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }} --region=${{ env.REGION }} --format='value(status.url)'
+      
+      - name: Cleanup older revisions
+        run: |
+          SERVICE_NAME=${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
+          REGION=${{ env.REGION }}
+
+          # List all revisions, sorted by creation timestamp in descending order
+          gcloud run revisions list \
+            --service=$SERVICE_NAME \
+            --region=$REGION \
+            --format="value(METADATA.name)" \
+            --sort-by=~CREATED_AT \
+            | tail -n +4
