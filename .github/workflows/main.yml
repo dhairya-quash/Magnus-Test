@@ -31,9 +31,12 @@ jobs:
       - name: Set SERVICE_NAME
         run: |
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            echo "SERVICE_NAME=${{ secrets.PRODUCTION_SERVICE }}" >> $GITHUB_ENV
+            echo "SERVICE_NAME=${{ secrets.CLOUD_RUN_PRODUCTION_SERVICE }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+            echo "SERVICE_NAME=${{ secrets.CLOUD_RUN_STAGING_SERVICE }}" >> $GITHUB_ENV
           else
-            echo "SERVICE_NAME=${{ secrets.STAGING_SERVICE }}" >> $GITHUB_ENV
+            echo "Invalid environment: ${{ github.event.inputs.environment }}. Valid values are 'production' or 'staging'." >&2
+            exit 1
           fi
 
       # Step 3: Authenticate with Google Cloud
