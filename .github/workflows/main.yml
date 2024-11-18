@@ -13,7 +13,6 @@ on:
         default: "main"
 
 env:
-  SERVICE_NAME: ${{ secrets.CLOUD_RUN_SERVICE }}
   REGION: ${{ secrets.REGION }}
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
@@ -28,40 +27,49 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch }}
 
-      # Step 2: Authenticate with Google Cloud
+      # Step 2: Set SERVICE_NAME based on environment
+      - name: Set SERVICE_NAME
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "SERVICE_NAME=${{ secrets.PRODUCTION_SERVICE }}" >> $GITHUB_ENV
+          else
+            echo "SERVICE_NAME=${{ secrets.STAGING_SERVICE }}" >> $GITHUB_ENV
+          fi
+
+      # Step 3: Authenticate with Google Cloud
       - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v1
         with:
           project_id: ${{ env.PROJECT_ID }}
           credentials_json: ${{secrets.GCP_SERVICE_ACCOUNT_KEY}}
 
-      # Step 3: Configure gcloud CLI
+      # Step 4: Configure gcloud CLI
       - name: Set up gcloud CLI
         run: |
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
           gcloud auth configure-docker
 
-      # Step 4: Get Git commit hash for versioning
+      # Step 5: Get Git commit hash for versioning
       - name: Get short Git commit hash
         id: commit
         run: |
           echo "GIT_COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      # Step 5: Build Docker image with versioning
+      # Step 6: Build Docker image with versioning
       - name: Build Docker image
         run: |
           IMAGE_NAME=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
           IMAGE_TAG="${{ github.event.inputs.branch }}-${{ github.sha }}"
           docker build -t $IMAGE_NAME:$IMAGE_TAG .
 
-      # Step 6: Push Docker image with tag to GCR
+      # Step 7: Push Docker image with tag to GCR
       - name: Push Docker image to GCR
         run: |
           IMAGE_TAG="${{ github.event.inputs.branch }}-${{ github.sha }}"
           IMAGE_NAME=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
           docker push $IMAGE_NAME:$IMAGE_TAG
 
-      # Step 7: Deploy to Cloud Run
+      # Step 8: Deploy to Cloud Run
       - name: Deploy to Cloud Run
         run: |
           IMAGE_TAG="${{ github.event.inputs.branch }}-${{ github.sha }}"
@@ -71,12 +79,13 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --set-env-vars SPRING_DATA_MONGODB_URI=mongodb+srv://droiddumbledore:adamaus001@quashmagnusstage.jj8wrxd.mongodb.net/?retryWrites=true&w=majority&appName=QuashMagnusStage,SPRING_DATA_MONGODB_DATABASE=QuashMagnusStage,SPRING_PROFILES_ACTIVE=${{ github.event.inputs.environment }}
-      # Step 8: Verify the deployment
+      # Step 9: Verify the deployment
       - name: Verify deployment
         run: |
           echo "Deployment complete. Access your service at:"
           gcloud run services describe ${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }} --region=${{ env.REGION }} --format='value(status.url)'
       
+      # Step 10: Clean Older Revisions
       - name: Cleanup older revisions
         run: |
           SERVICE_NAME=${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
