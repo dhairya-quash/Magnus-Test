@@ -88,4 +88,6 @@ jobs:
             --region=$REGION \
             --format="value(METADATA.name)" \
             --sort-by=~CREATED_AT \
-            | tail -n +4
+            | tail -n +4\ # Exclude the latest 3 revisions
+            | xargs -I {} gcloud run revisions delete {} \
+              --region=$REGION --quiet
