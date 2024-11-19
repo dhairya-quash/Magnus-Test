@@ -39,6 +39,10 @@ jobs:
             exit 1
           fi
 
+      - name: Debug SERVICE_NAME
+        run: echo "SERVICE_NAME=${{ env.SERVICE_NAME }}"
+
+
       # Step 3: Authenticate with Google Cloud
       - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v1
