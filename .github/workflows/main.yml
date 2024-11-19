@@ -85,6 +85,15 @@ jobs:
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
+            --min-instances=1 \
+            --max-instances=100 \
+            --memory=512Mi \
+            --cpu=1000m \
+            --port=8080 \
+            --concurrency=80 \
+            --timeout=300s \
+            --service-account=780701254989-compute@developer.gserviceaccount.com \
+            --set-startup-cpu-boost \
             --set-env-vars SPRING_DATA_MONGODB_URI=mongodb+srv://droiddumbledore:adamaus001@quashmagnusstage.jj8wrxd.mongodb.net/?retryWrites=true&w=majority&appName=QuashMagnusStage,SPRING_DATA_MONGODB_DATABASE=QuashMagnusStage,SPRING_PROFILES_ACTIVE=${{ github.event.inputs.environment }}
       # Step 9: Verify the deployment
       - name: Verify deployment
