@@ -95,7 +95,7 @@ jobs:
       # Step 10: Clean Older Revisions
       - name: Cleanup older revisions
         run: |
-          SERVICE_NAME=${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }}
+          SERVICE_NAME=${{env.SERVICE_NAME}}
           REGION=${{ env.REGION }}
 
           # List all revisions, sorted by creation timestamp in descending order
@@ -104,7 +104,7 @@ jobs:
             --region=$REGION \
             --format="value(METADATA.name)" \
             --sort-by=~CREATED_AT \
-            | tail -n +4 \
+            | tail -n +6 \
             | xargs -I {} gcloud run revisions delete {} \
               --region=$REGION --quiet
       
