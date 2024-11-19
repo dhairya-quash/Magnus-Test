@@ -90,7 +90,7 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Deployment complete. Access your service at:"
-          gcloud run services describe ${{env.SERVICE_NAME}}-${{ github.event.inputs.environment }} --region=${{ env.REGION }} --format='value(status.url)'
+          gcloud run services describe ${{env.SERVICE_NAME}} --region=${{ env.REGION }} --format='value(status.url)'
       
       # Step 10: Clean Older Revisions
       - name: Cleanup older revisions
